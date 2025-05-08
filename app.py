@@ -184,18 +184,31 @@ def add_book():
     topic_question = data['topic_question']
     print(f"Received request to add book: ID='{book_id}', Title='{title}'")
 
-    # 1. Prepare text and generate embedding
+    # First check for duplicates before generating embedding
+    # This read operation should be under lock
+    with data_lock:
+        if any(book.get('id') == book_id for book in book_metadata):
+            print(f"Book with ID '{book_id}' already exists. Skipping addition.")
+            return jsonify({"message": f"Book with ID '{book_id}' already exists. No update performed."}), 409 # 409 Conflict
+
+    # If not duplicate, proceed to generate embedding (can be time-consuming, so outside the lock)
     text_to_embed = f"{title} {topic_question}" # Combine title and topic question
     new_embedding = model.encode(text_to_embed, convert_to_tensor=True, device=device)
     # Ensure the new embedding is 2D ( [1, embedding_dim] ) for concatenation
     new_embedding = new_embedding.unsqueeze(0)
 
-    # 2. Prepare metadata
+    # Prepare metadata
     new_metadata_entry = {"id": book_id, "title": title} # Add id and title
 
-    # 3. Acquire lock and update shared resources (in-memory and files)
+    # Acquire lock again to perform the update and final check
     with data_lock:
         print("Acquired lock to update data...")
+        # Re-check for duplicate ID, in case it was added by another request
+        # while the current request was generating the embedding.
+        if any(book.get('id') == book_id for book in book_metadata):
+            print(f"Book with ID '{book_id}' was added concurrently. Skipping addition.")
+            return jsonify({"message": f"Book with ID '{book_id}' was added concurrently. No update performed."}), 409
+
         try:
             # Update in-memory data
             book_embeddings = torch.cat((book_embeddings, new_embedding), dim=0)
