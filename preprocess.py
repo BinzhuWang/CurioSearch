@@ -56,4 +56,4 @@ def preprocess_and_save_embeddings(csv_path="/Users/binzhu/Desktop/CurioSearch/b
 
 if __name__ == "__main__":
     # Example usage: Using the updated CSV path
-    preprocess_and_save_embeddings(csv_path="/Users/binzhu/Desktop/CurioSearch/绘本20250428.csv")
+    preprocess_and_save_embeddings(csv_path="/Users/binzhu/Desktop/CurioSearch/book_data.csv")
